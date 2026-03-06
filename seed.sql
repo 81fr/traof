@@ -1,12 +1,24 @@
-INSERT INTO merchants (id, legal_name, trade_name, industry, city, website, contact_public_email, csr_focus, support_types, kyc_status)
-VALUES 
-('123e4567-e89b-12d3-a456-426614174000', 'شركة التقدم للتجارة', 'التقدم', 'تجزئة', 'الرياض', 'https://example-tagadum.com', 'info@example.com', '{"تعليم", "صحة"}', '{"cash", "in_kind"}', 'verified');
+-- حذف البيانات السابقة لتجنب التعارض
+TRUNCATE TABLE pledges CASCADE;
+TRUNCATE TABLE orphan_cases CASCADE;
+TRUNCATE TABLE merchants CASCADE;
 
-INSERT INTO orphan_cases (id, title, city, age_years, need_category, description, budget_required, verification_level)
+-- إضافة تجار محاكين واقعيين للسوق السعودي
+INSERT INTO merchants (id, legal_name, trade_name, cr_number, industry, city, website, contact_person_name, contact_person_position, contact_phone, contact_email, csr_focus, support_types, kyc_status)
 VALUES 
-('987e6543-e21b-34d3-b456-426614174111', 'كفالة طالب جامعي', 'جدة', 19, 'تعليم', 'طالب متفوق بحاجة لدعم لإكمال مسيرته الأكاديمية.', 15000.00, 'verified'),
-('876e5432-e10b-23d3-c456-426614174222', 'ترميم منزل أسرة أيتام', 'الدمام', 10, 'سكن', 'منزل العائلة بحاجة لأعمال صيانة ضرورية للحفاظ على سلامتهم.', 35000.00, 'review');
+('11111111-1111-1111-1111-111111111111', 'شركة أفق الرائدة للتطوير العقاري', 'أفق العقارية', '1010123456', 'تطوير عقاري وإسكان', 'الرياض', 'https://ufoq-realestate.sa', 'م. فهد بن عبدالله القحطاني', 'الرئيس التنفيذي', '+966500123456', 'fahad@ufoq-realestate.sa', '{"سكن", "تنمية مجتمعية"}', '{"cash", "in_kind"}', 'verified'),
+('22222222-2222-2222-2222-222222222222', 'مؤسسة إمداد التمويلية', 'إمداد للتمويل', '1010654321', 'تمويل وخدمات مالية', 'الدمام', 'https://emdad-finance.sa', 'سارة بنت عبدالعزيز الشمري', 'مديرة المسؤولية الاجتماعية (CSR)', '+966550987654', 'sara.s@emdad-finance.sa', '{"تعليم", "كفالة عامة"}', '{"cash"}', 'verified'),
+('33333333-3333-3333-3333-333333333333', 'مجموعة الراشد للخدمات الطبية', 'الراشد ميديكال', '4030112233', 'رعاية صحية ومستشفيات', 'جدة', 'https://alrashed-medical.sa', 'د. نايف بن خالد العتيبي', 'المدير الطبي وعلاقات المجتمع', '+966544443322', 'n.alotaibi@alrashed-medical.sa', '{"صحة", "تأهيل"}', '{"cash", "service"}', 'review');
 
+-- إضافة حالات أيتام (تراؤف)
+INSERT INTO orphan_cases (id, title, city, age_years, need_category, description, budget_required, amount_raised, verification_level)
+VALUES 
+('aaaa1111-1111-1111-1111-111111111111', 'تأمين سكن لأسرة مكونة من 5 أيتام', 'حفر الباطن', NULL, 'سكن', 'الأسرة تعيش في منزل متهالك يحتاج لإصلاحات عاجلة وتهيئة البيئة لتكون مناسبة لسكن الأيتام بأمان، وتوفير الأجهزة الأساسية.', 85000.00, 20000.00, 'verified'),
+('bbbb2222-2222-2222-2222-222222222222', 'كفالة تعليم جامعي لطالب متميز', 'حفر الباطن', 19, 'تعليم', 'طالب من المتميزين علمياً، تم قبوله في كلية الهندسة وبحاجة لدعم مالي للمواصلات والأدوات الدراسية.', 12000.00, 12000.00, 'verified'),
+('cccc3333-3333-3333-3333-333333333333', 'رحلة علاجية ليتيمة من ذوي الاحتياجات', 'حفر الباطن', 8, 'صحة', 'الطفلة بحاجة لجلسات تأهيل مستمرة وعملية جراحية دقيقة لتمكينها من السير مجدداً.', 45000.00, 5000.00, 'verified');
+
+-- إضافة التزامات سابقة
 INSERT INTO pledges (id, merchant_id, orphan_case_id, pledge_type, amount, status)
 VALUES 
-('111e2222-e33b-44d3-d456-426614174333', '123e4567-e89b-12d3-a456-426614174000', '987e6543-e21b-34d3-b456-426614174111', 'cash', 10000.00, 'initiated');
+('99999999-9999-9999-9999-999999999999', '11111111-1111-1111-1111-111111111111', 'aaaa1111-1111-1111-1111-111111111111', 'cash', 20000.00, 'fulfilled'),
+('88888888-8888-8888-8888-888888888888', '22222222-2222-2222-2222-222222222222', 'bbbb2222-2222-2222-2222-222222222222', 'cash', 12000.00, 'fulfilled');

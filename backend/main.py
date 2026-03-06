@@ -1,47 +1,83 @@
-from fastapi import FastAPI, HTTPException, Request
-from pydantic import BaseModel
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
 
-app = FastAPI(title="Kafalah Platform API", description="API for B2B Orphan Sponsorship")
+from backend import models, database
+from pydantic import BaseModel, ConfigDict
+from decimal import Decimal
 
-class Merchant(BaseModel):
+# تهيئة قاعدة البيانات
+models.Base.metadata.create_all(bind=database.engine)
+
+app = FastAPI(title="Kafalah Platform API", description="API for B2B Orphan Sponsorship - Traof")
+
+# Pydantic Schemas
+class MerchantCreate(BaseModel):
+    legal_name: str
+    trade_name: Optional[str] = None
+    cr_number: Optional[str] = None
+    city: Optional[str] = None
+    contact_person_name: str
+    contact_phone: str
+
+class MerchantResponse(BaseModel):
     id: uuid.UUID
-    trade_name: str
-    city: str
+    trade_name: Optional[str]
+    city: Optional[str]
     kyc_status: str
+    model_config = ConfigDict(from_attributes=True)
 
-class OrphanCase(BaseModel):
+class OrphanCaseResponse(BaseModel):
     id: uuid.UUID
     title: str
-    city: str
-    budget_required: float
+    city: Optional[str]
+    budget_required: Optional[Decimal]
+    amount_raised: Optional[Decimal]
     verification_level: str
+    model_config = ConfigDict(from_attributes=True)
 
-@app.post("/api/merchants")
-async def register_merchant(merchant: Merchant):
-    return {"status": "success", "data": merchant}
+class PledgeCreate(BaseModel):
+    merchant_id: uuid.UUID
+    case_id: uuid.UUID
+    amount: Decimal
 
-@app.get("/api/merchants/{merchant_id}")
-async def get_merchant(merchant_id: uuid.UUID):
-    return {"id": merchant_id, "trade_name": "Test Company", "kyc_status": "verified"}
+@app.post("/api/merchants", response_model=MerchantResponse)
+def register_merchant(merchant: MerchantCreate, db: Session = Depends(database.get_db)):
+    db_merchant = models.Merchant(**merchant.model_dump())
+    db.add(db_merchant)
+    db.commit()
+    db.refresh(db_merchant)
+    return db_merchant
 
-@app.post("/api/orphans")
-async def add_orphan_case(case: OrphanCase):
-    return {"status": "success", "data": case}
+@app.get("/api/merchants/{merchant_id}", response_model=MerchantResponse)
+def get_merchant(merchant_id: uuid.UUID, db: Session = Depends(database.get_db)):
+    merchant = db.query(models.Merchant).filter(models.Merchant.id == merchant_id).first()
+    if not merchant:
+        raise HTTPException(status_code=404, detail="Merchant not found")
+    return merchant
 
-@app.get("/api/orphans")
-async def list_orphans(city: Optional[str] = None):
-    return [
-        {"id": uuid.uuid4(), "title": "كفالة تعليمية - المرحلة الابتدائية", "city": "الرياض", "budget_required": 5000},
-        {"id": uuid.uuid4(), "title": "ترميم منزل", "city": "جدة", "budget_required": 25000}
-    ]
+@app.get("/api/orphans", response_model=List[OrphanCaseResponse])
+def list_orphans(db: Session = Depends(database.get_db)):
+    return db.query(models.OrphanCase).all()
 
 @app.post("/api/pledges")
-async def create_pledge(merchant_id: uuid.UUID, case_id: uuid.UUID, amount: float):
-    return {"status": "pledge_initiated", "pledge_id": uuid.uuid4()}
-
-@app.get("/api/recommendations")
-async def get_recommendations(merchant_id: uuid.UUID):
-    # إرجاع حالات تتوافق مع اهتمامات التاجر
-    return list_orphans()
+def create_pledge(pledge: PledgeCreate, db: Session = Depends(database.get_db)):
+    # التحقق من وجود التاجر والحالة
+    merchant = db.query(models.Merchant).filter(models.Merchant.id == pledge.merchant_id).first()
+    case = db.query(models.OrphanCase).filter(models.OrphanCase.id == pledge.case_id).first()
+    
+    if not merchant or not case:
+        raise HTTPException(status_code=404, detail="Merchant or Case not found")
+    
+    db_pledge = models.Pledge(
+        merchant_id=merchant.id,
+        orphan_case_id=case.id,
+        amount=pledge.amount,
+        pledge_type='cash'
+    )
+    db.add(db_pledge)
+    # تحديث المبلغ المجموع للحالة
+    case.amount_raised = (case.amount_raised or 0) + pledge.amount
+    db.commit()
+    return {"status": "pledge_initiated", "pledge_id": db_pledge.id}
